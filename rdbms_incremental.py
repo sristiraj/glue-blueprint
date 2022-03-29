@@ -15,10 +15,8 @@ from awsglue.utils import getResolvedOptions
 params = [
     'JOB_NAME',
     'region',
-    'input_database_connection',
-    'input_table',
-    'input_table_inc_column',
-    'input_table_inc_col_dtype',
+    'input_s3_path',
+    'input_data_format',
     'output_database',
     'output_table',
     'output_path',
@@ -28,12 +26,11 @@ params = [
 
 args = getResolvedOptions(sys.argv, params)
 region = args['region']
-input_database_connection = args['input_database_connection']
-input_table = args['input_table']
+input_s3_path = args['input_s3_path']
+input_data_format = args['input_data_format']
 output_database = args['output_database']
 output_table = args['output_table']
 output_path = args['output_path']
-output_table_partition_col = args.get('output_table_partition_col',None)
 
 glue_context = GlueContext(SparkContext.getOrCreate())
 spark = glue_context.spark_session
@@ -43,21 +40,10 @@ job.init(args['JOB_NAME'], args)
 
 # Create DynamicFrame from Data Catalog
 client = boto3.client('glue', region_name=region)
-response = client.get_connection(Name=input_database_connection)
-connection_properties = response['Connection']['ConnectionProperties']
-URL = connection_properties['JDBC_CONNECTION_URL']
-url_list = URL.split("/")
-host = "{}".format(url_list[-2][:-5])
-port = url_list[-2][-4:]
-database = "{}".format(url_list[-1])
-user = "{}".format(connection_properties['USERNAME'])
-pwd = "{}".format(connection_properties['PASSWORD'])
-df = spark.read.format("jdbc").option("url", URL).option("user", user).option("password", pwd).option("query", "select * from {} ".format(input_table)).load()
-df = df.withColumn("audit_process_load_dt_tmstmp")
-glue = boto3.client('glue')
 
-if output_table_partition_col is None or output_table_partition_col not in df.columns:
-    output_table_partition_col = "audit_process_load_dt_tmstmp"
+df = spark.read.format("input_data_format").option("header", "true").option("path",input_s3_path).load()
+df = df.withColumn("audit_process_load_dt_tmstmp", lit(current_timestamp))
+glue = boto3.client('glue')
 
 
 # Begin Lake Formation transaction
