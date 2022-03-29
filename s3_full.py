@@ -4,7 +4,7 @@
 import sys
 import boto3
 from pyspark.context import SparkContext
-from pyspark.sql.functions import withColumn
+from pyspark.sql.functions import withColumn, lit
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.transforms import ResolveChoice, DropNullFields
@@ -41,7 +41,7 @@ job.init(args['JOB_NAME'], args)
 # Create DynamicFrame from Data Catalog
 client = boto3.client('glue', region_name=region)
 
-df = spark.read.format("input_data_format").option("header", "true").option("path",input_s3_path).load()
+df = spark.read.format(input_data_format).option("header", "true").option("path",input_s3_path).load()
 df = df.withColumn("audit_process_load_dt_tmstmp", lit(current_timestamp))
 glue = boto3.client('glue')
 
