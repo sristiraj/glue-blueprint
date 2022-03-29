@@ -9,7 +9,7 @@ from botocore.client import ClientError
 
 
 def generate_layout(user_params, system_params):
-    file_name = f"rdbms_to_glue_table_{user_params['SourceTableName']}.py"
+    file_name = f"s3_to_glue_table_{user_params['DestinationGlueDatabaseName']}_{user_params['DestinationGlueTableName']}.py"
 
     session = boto3.Session(region_name=system_params['region'])
     glue = session.client('glue')
@@ -62,7 +62,7 @@ def generate_layout(user_params, system_params):
     # Upload job script to script bucket
     the_script_key = f"{workflow_name}/{file_name}"
     the_script_location = f"s3://{the_script_bucket}/{the_script_key}"
-    with open("rdbms-full-blueprint/rdbms_incremental.py", "rb") as f:
+    with open("s3-full-blueprint/s3_full.py", "rb") as f:
         s3_client.upload_fileobj(f, the_script_bucket, the_script_key)
 
     jobs = []
@@ -82,16 +82,15 @@ def generate_layout(user_params, system_params):
         "--enable-rename-algorithm-v2": "",
         "--enable-metrics": "",
         "--enable-continuous-cloudwatch-log": "true",
-        "--input_database_connection": user_params['SourceConnectionName'],
-        "--input_table": user_params['SourceTableName'],
+        "--input_s3_path": user_params['SourceS3Path'],
+        "--input_data_format": user_params['SourceDataType'],
         "--output_database": user_params['DestinationDatabaseName'],
         "--output_table": user_params['DestinationTableName'],
-        "--output_table_partition_col": user_params['DestinationTablePartitionKey'],
         "--output_path": user_params['OutputDataLocation']
     }
 
     transform_job = Job(
-        Name=f"{workflow_name}_rdbms_to_glue_table_{user_params['SourceTableName']}",
+        Name=f"{workflow_name}_s3_to_glue_table_{user_params['DestinationGlueDatabaseName']}_{user_params['DestinationGlueTableName']}",
         Command=command,
         Role=user_params['GlueExecutionRole'],
         DefaultArguments=arguments,
